@@ -1,7 +1,9 @@
 from fastapi import FastAPI
-from . import models, database, routes
+from .routes import router
 
-models.Base.metadata.create_all(bind=database.engine)
+app = FastAPI(
+    title="Task Management API with MongoDB",
+    version="1.0.0"
+)
 
-app = FastAPI(title="Task Manager API")
-app.include_router(routes.router)
+app.include_router(router)

@@ -1,37 +1,47 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from . import schemas, crud, auth, dependencies
-from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt
-import os
-from datetime import timedelta
+from fastapi import APIRouter, HTTPException
+from bson import ObjectId
+from .database import task_collection
+from .models import task_helper
+from .schemas import TaskCreate, Task
+from typing import List
 
 router = APIRouter()
 
-@router.post("/register", response_model=schemas.UserOut)
-def register(user: schemas.UserCreate, db: Session = Depends(dependencies.get_db)):
-    return crud.create_user(db, user)
+@router.post("/tasks/", response_model=Task)
+def create_task(task: TaskCreate):
+    task_dict = task.dict()
+    result = task_collection.insert_one(task_dict)
+    created_task = task_collection.find_one({"_id": result.inserted_id})
+    return task_helper(created_task)
 
-@router.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dependencies.get_db)):
-    user = crud.authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    access_token = auth.create_access_token(data={"sub": str(user.id)}, expires_delta=timedelta(minutes=30))
-    return {"access_token": access_token, "token_type": "bearer"}
+@router.get("/tasks/", response_model=List[Task])
+def get_tasks():
+    tasks = []
+    for task in task_collection.find():
+        tasks.append(task_helper(task))
+    return tasks
 
-@router.post("/tasks/")
-def create_task(task: schemas.TaskCreate, db: Session = Depends(dependencies.get_db), user=Depends(dependencies.get_current_user)):
-    return crud.create_task(db, task, user.id)
+@router.get("/tasks/{task_id}", response_model=Task)
+def get_task(task_id: str):
+    task = task_collection.find_one({"_id": ObjectId(task_id)})
+    if task:
+        return task_helper(task)
+    raise HTTPException(status_code=404, detail="Task not found")
 
-@router.get("/tasks/", response_model=list[schemas.TaskOut])
-def read_tasks(db: Session = Depends(dependencies.get_db), user=Depends(dependencies.get_current_user)):
-    return crud.get_tasks(db, user.id)
-
-@router.put("/tasks/{task_id}")
-def update_task(task_id: int, task: schemas.TaskCreate, db: Session = Depends(dependencies.get_db), user=Depends(dependencies.get_current_user)):
-    return crud.update_task(db, task_id, task)
+@router.put("/tasks/{task_id}", response_model=Task)
+def update_task(task_id: str, updated_task: TaskCreate):
+    result = task_collection.update_one(
+        {"_id": ObjectId(task_id)},
+        {"$set": updated_task.dict()}
+    )
+    if result.modified_count == 1:
+        task = task_collection.find_one({"_id": ObjectId(task_id)})
+        return task_helper(task)
+    raise HTTPException(status_code=404, detail="Task not found")
 
 @router.delete("/tasks/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(dependencies.get_db), user=Depends(dependencies.get_current_user)):
-    return crud.delete_task(db, task_id)
+def delete_task(task_id: str):
+    result = task_collection.delete_one({"_id": ObjectId(task_id)})
+    if result.deleted_count == 1:
+        return {"message": "Task deleted"}
+    raise HTTPException(status_code=404, detail="Task not found")
