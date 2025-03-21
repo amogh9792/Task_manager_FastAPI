@@ -1,2 +1,6 @@
 venv_task/
-.env/".env" 
+.env
+__pycache__/
+*.pyc
+*.sqlite3
+.DS_Store
