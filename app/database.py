@@ -1,9 +1,18 @@
 from pymongo import MongoClient
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # Load from .env
 
-client = MongoClient(os.getenv("MONGO_URI"))
-db = client[os.getenv("DB_NAME")]
-task_collection = db.tasks
+MONGO_URI = os.getenv("MONGO_URI")
+
+# ✅ MongoDB Client
+client = MongoClient(MONGO_URI)
+db = client["task_manager_db"]
+
+# ✅ Collections
+task_collection = db["tasks"]
+user_collection = db["users"]
+
+# ✅ Ensure username is unique
+user_collection.create_index("username", unique=True)

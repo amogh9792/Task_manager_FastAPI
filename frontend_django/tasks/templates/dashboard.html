@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Dashboard</title></head>
+<body>
+  <h2>Welcome to Task Dashboard</h2>
+  <ul>
+    {% for task in tasks %}
+      <li>{{ task['title'] }} - {{ task['description'] }}</li>
+    {% empty %}
+      <li>No tasks found.</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
